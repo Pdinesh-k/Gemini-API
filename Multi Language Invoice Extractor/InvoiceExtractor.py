@@ -1,60 +1,49 @@
 from dotenv import load_dotenv
-#To Load all the environment variables from .env
 load_dotenv()
 
 import streamlit as st
 import os
 import google.generativeai as genai
 from PIL import Image
+from io import BytesIO
 
 genai.configure(api_key = os.getenv("GOOGLE_API_KEY"))
-
-#Function to load Gemini Pro Vision
 model = genai.GenerativeModel("gemini-pro-vision")
 
-def gemini_response(input,image,prompt):
-    response = model.generate_content([input,image[0],prompt])
+def generate_func(image_prompt,input,image_data):
+    response = model.generate_content([image_prompt,input,image_data[0]])
     return response.text
 
-#Function to get bytes from the Image so we can process Invoice Extractor
-def get_bytes(uploaded_file):
-
-    if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
-
-        image_parts = [
+def get_bytes(image):
+    if image is not None:
+        image_byte_arr = BytesIO()
+        image.save(image_byte_arr, format='PNG')
+        bytes = image_byte_arr.getvalue()
+        key = [
             {
-                "mime_type" : uploaded_file.type,
-                "data" : bytes_data
+            "mime_type" : "image/png",
+            "data" : bytes
             }
         ]
-        return image_parts
-    else:
-        raise FileNotFoundError("No file uploaded")
+        return key
+st.set_page_config(page_title="Cheenu's BOT")
+st.header("Invoice Extractor using Gemini")
+image_uploader = st.file_uploader("Upload the required Image",type=["png","jpg","jpeg"])
+if image_uploader is not None:
+    image = Image.open(image_uploader)
+    st.image(image,caption="Uploaded Image")
+input_box = st.text_input("Ask something about this Image",key="input")
+submit = st.button("Submit the question")
 
-#Initialize Streamlit app
-st.set_page_config(page_title = "Invoice Extractor")
-st.header("Multi Language Invoice Extrator")
-input_text = st.text_input("Input : ",key = "input")
-
-uploaded_file = st.file_uploader("Choose an Image",type=["jpeg","jpg","png"])
-image = ""
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image,caption="Uploaded your Image",use_column_width=True)
-
-submit = st.button("Tell me about the Invoice")
 
 input_prompt = """
-You are an axpert in understanding invoices . We will upload a
- image as invoice and you will have to answer 
- any questions based on uploaded invoice image """
-
+Hi my dear Gemini , I know you are master at everything , but i need one help from you , which is i have uploaded one image , just extract the data from it and answer my questions that's the task for you
+"""
 if submit:
-    image_data = get_bytes(uploaded_file)
-    response = gemini_response(input_prompt,image_data,input_text)
-    st.subheader("The response is")
-    st.write(response)
+    bytes_value = get_bytes(image)
+    result = generate_func(input_prompt,input_box,bytes_value)
+    st.subheader("The Response is : ")
+    st.write(result)
 
 
 
